@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nigerian Tweet Hate Speech Detector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .model-status {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+            border-left: 4px solid #007bff;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-ready {
+            background-color: #28a745;
+            animation: pulse 2s infinite;
+        }
+
+        .status-not-ready {
+            background-color: #dc3545;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .train-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .input-group textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            resize: vertical;
+            min-height: 120px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-train {
+            background: linear-gradient(135deg, #ffa726, #fb8c00);
+            margin-right: 10px;
+        }
+
+        .btn-train:hover {
+            box-shadow: 0 10px 25px rgba(255, 167, 38, 0.3);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ffffff40;
+            border-radius: 50%;
+            border-top-color: #ffffff;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .result {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 25px;
+            border-left: 4px solid #007bff;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.4s ease;
+        }
+
+        .result.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .result h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .prediction {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .prediction-label {
+            font-size: 1.2em;
+            font-weight: bold;
+            padding: 8px 16px;
+            border-radius: 20px;
+            margin-right: 15px;
+        }
+
+        .hate-speech {
+            background: #ffebee;
+            color: #c62828;
+            border: 2px solid #ef5350;
+        }
+
+        .not-hate-speech {
+            background: #e8f5e8;
+            color: #2e7d32;
+            border: 2px solid #4caf50;
+        }
+
+        .confidence {
+            background: #e3f2fd;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            color: #1565c0;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef5350;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .examples {
+            background: #f0f8ff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .examples h4 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .example-btn {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .example-btn:hover {
+            background: #bbdefb;
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .btn {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+
+            .btn-train {
+                margin-right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🇳🇬 Nigerian Tweet Hate Speech Detector</h1>
+            <p>AI-powered detection for multilingual Nigerian social media content</p>
+        </div>
+
+        <div class="model-status" id="modelStatus">
+            <span class="status-indicator status-not-ready" id="statusIndicator"></span>
+            <span id="statusText">Checking model status...</span>
+        </div>
+
+        <div class="train-section" id="trainSection">
+            <h3>⚡ Model Training Required</h3>
+            <p>Click the button below to download the dataset and train the hate speech detection model.</p>
+            <br>
+            <button class="btn btn-train" id="trainBtn" onclick="trainModel()">
+                Train Model
+                <span class="loading" id="trainLoading" style="display: none;"></span>
+            </button>
+        </div>
+
+        <div class="input-section">
+            <div class="input-group">
+                <label for="tweetText">Enter Tweet or Text to Analyze:</label>
+                <textarea 
+                    id="tweetText" 
+                    placeholder="Type or paste a tweet here to check for hate speech..."
+                    maxlength="1000"
+                ></textarea>
+            </div>
+
+            <button class="btn" id="analyzeBtn" onclick="analyzeTweet()" disabled>
+                Analyze Tweet
+                <span class="loading" id="analyzeLoading" style="display: none;"></span>
+            </button>
+        </div>
+
+        <div class="result" id="result" style="display: none;">
+            <h3>📊 Analysis Result</h3>
+            <div class="prediction" id="predictionResult"></div>
+            <div class="confidence" id="confidenceResult"></div>
+        </div>
+
+        <div class="error" id="errorResult" style="display: none;"></div>
+
+        <div class="examples">
+            <h4>💡 Try these examples:</h4>
+            <button class="example-btn" onclick="setExample('I love Nigeria and all its people')">Positive example</button>
+            <button class="example-btn" onclick="setExample('Nigeria is a beautiful country with diverse cultures')">Cultural appreciation</button>
+            <button class="example-btn" onclick="setExample('We should work together for a better Nigeria')">Unity message</button>
+        </div>
+    </div>
+
+    <script>
+        let isModelTrained = false;
+
+        // Check model status on page load
+        window.onload = function() {
+            checkModelStatus();
+        };
+
+        async function checkModelStatus() {
+            try {
+                const response = await fetch('/status');
+                const data = await response.json();
+                
+                isModelTrained = data.trained;
+                updateStatusDisplay();
+            } catch (error) {
+                console.error('Error checking model status:', error);
+                document.getElementById('statusText').textContent = 'Error checking model status';
+            }
+        }
+
+        function updateStatusDisplay() {
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const trainSection = document.getElementById('trainSection');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+
+            if (isModelTrained) {
+                statusIndicator.className = 'status-indicator status-ready';
+                statusText.textContent = 'Model is ready for predictions';
+                trainSection.style.display = 'none';
+                analyzeBtn.disabled = false;
+            } else {
+                statusIndicator.className = 'status-indicator status-not-ready';
+                statusText.textContent = 'Model needs to be trained';
+                trainSection.style.display = 'block';
+                analyzeBtn.disabled = true;
+            }
+        }
+
+        async function trainModel() {
+            const trainBtn = document.getElementById('trainBtn');
+            const trainLoading = document.getElementById('trainLoading');
+            const errorResult = document.getElementById('errorResult');
+
+            trainBtn.disabled = true;
+            trainLoading.style.display = 'inline-block';
+            trainBtn.innerHTML = 'Training Model... <span class="loading"></span>';
+            
+            try {
+                const response = await fetch('/train', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    isModelTrained = true;
+                    updateStatusDisplay();
+                    showSuccess('Model trained successfully! Accuracy: ' + (data.accuracy * 100).toFixed(2) + '%');
+                } else {
+                    showError('Training failed: ' + data.message);
+                }
+            } catch (error) {
+                showError('Error training model: ' + error.message);
+                console.error('Training error:', error);
+            } finally {
+                trainBtn.disabled = false;
+                trainLoading.style.display = 'none';
+                trainBtn.innerHTML = 'Train Model';
+            }
+        }
+
+        async function analyzeTweet() {
+            const text = document.getElementById('tweetText').value.trim();
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const analyzeLoading = document.getElementById('analyzeLoading');
+            const result = document.getElementById('result');
+            const errorResult = document.getElementById('errorResult');
+
+            if (!text) {
+                showError('Please enter some text to analyze');
+                return;
+            }
+
+            analyzeBtn.disabled = true;
+            analyzeLoading.style.display = 'inline-block';
+            result.style.display = 'none';
+            errorResult.style.display = 'none';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    showResult(data);
+                }
+            } catch (error) {
+                showError('Error analyzing text: ' + error.message);
+                console.error('Analysis error:', error);
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeLoading.style.display = 'none';
+            }
+        }
+
+        function showResult(data) {
+            const result = document.getElementById('result');
+            const predictionResult = document.getElementById('predictionResult');
+            const confidenceResult = document.getElementById('confidenceResult');
+
+            const isHateSpeech = data.prediction === 'Hate Speech';
+            const confidence = (data.confidence * 100).toFixed(1);
+
+            predictionResult.innerHTML = `
+                <span class="prediction-label ${isHateSpeech ? 'hate-speech' : 'not-hate-speech'}">
+                    ${isHateSpeech ? '⚠️ Hate Speech Detected' : '✅ No Hate Speech'}
+                </span>
+            `;
+
+            confidenceResult.textContent = `Confidence: ${confidence}%`;
+
+            result.style.display = 'block';
+            setTimeout(() => result.classList.add('show'), 100);
+        }
+
+        function showError(message) {
+            const errorResult = document.getElementById('errorResult');
+            errorResult.textContent = message;
+            errorResult.style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            // Create a temporary success element
+            const successDiv = document.createElement('div');
+            successDiv.className = 'result show';
+            successDiv.style.background = '#e8f5e8';
+            successDiv.style.borderLeftColor = '#4caf50';
+            successDiv.style.color = '#2e7d32';
+            successDiv.innerHTML = `<h3>✅ Success</h3><p>${message}</p>`;
+            
+            document.querySelector('.train-section').appendChild(successDiv);
+            
+            setTimeout(() => {
+                successDiv.remove();
+            }, 5000);
+        }
+
+        function setExample(text) {
+            document.getElementById('tweetText').value = text;
+            if (isModelTrained) {
+                analyzeTweet();
+            }
+        }
+
+        // Allow Enter key to trigger analysis
+        document.getElementById('tweetText').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey && isModelTrained) {
+                analyzeTweet();
+            }
+        });
+    </script>
+</body>
+</html>
