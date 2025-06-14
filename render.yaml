@@ -2,8 +2,8 @@ services:
   - type: web
     name: hate-speech-detector
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    buildCommand: pip install --upgrade pip && pip install --only-binary=pandas,numpy,scikit-learn -r requirements.txt
+    startCommand: python app.py
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9.18
+        value: 3.12.7
